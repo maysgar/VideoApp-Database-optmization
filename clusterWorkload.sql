@@ -1,11 +1,10 @@
-clientes, contratos y productos
-
-
-
+-- creation of clusters
 CREATE CLUSTER cliente (clientId VARCHAR2(15) );
 CREATE CLUSTER titulo_peli (movie_title VARCHAR2(100));
 CREATE CLUSTER producto (Product_name VARCHAR2(25));
 CREATE CLUSTER id_contrato (clientId VARCHAR2(15));
+CREATE CLUSTER actor_cluster ((actor_name, VARCHAR2(50));
+
 
 
 
@@ -34,7 +33,7 @@ movie_facebook_likes      NUMBER(6),
 CONSTRAINT MOVIES_PK PRIMARY KEY (movie_title),
 CONSTRAINT MOVIES_CH CHECK (COLOR IN ('B','C', null))
 )
-CLUSTER clientes ();
+CLUSTER titulo_peli (movie_title);
 
 
 
@@ -43,7 +42,8 @@ title	VARCHAR2(100),
 genre	VARCHAR2(70),
 CONSTRAINT PK_GENRES_MOVIES PRIMARY KEY (title,genre),
 CONSTRAINT FK_GENRES_MOVIES FOREIGN KEY (title) REFERENCES MOVIES ON DELETE CASCADE
-);
+)
+CLUSTER titulo_peli (title);
 
 
 CREATE TABLE keywords_movies (
@@ -51,7 +51,8 @@ title		VARCHAR2(100),
 keyword		VARCHAR2(150),
 CONSTRAINT PK_KEYWORDS_MOVIES PRIMARY KEY (title,keyword),
 CONSTRAINT FK_KEYWORDS_MOVIES FOREIGN KEY (title) REFERENCES MOVIES ON DELETE CASCADE
-);
+)
+CLUSTER titulo_peli (title);
 
 
 CREATE TABLE PLAYERS (
@@ -65,7 +66,8 @@ actor   VARCHAR2(50),
 title   VARCHAR2(100),
 CONSTRAINT PK_CASTS PRIMARY KEY (actor, title),
 CONSTRAINT FK1_CASTS FOREIGN KEY (actor) REFERENCES PLAYERS ON DELETE CASCADE,
-CONSTRAINT FK2_CASTS FOREIGN KEY (title) REFERENCES MOVIES ON DELETE CASCADE);
+CONSTRAINT FK2_CASTS FOREIGN KEY (title) REFERENCES MOVIES ON DELETE CASCADE)
+CLUSTER titulo_peli (title);
 
 
 CREATE TABLE SERIES(
@@ -99,7 +101,8 @@ CONSTRAINT UK1_CLIENTS UNIQUE (DNI),
 CONSTRAINT UK2_CLIENTS UNIQUE (eMail),
 CONSTRAINT UK3_CLIENTS UNIQUE (phoneN),
 CONSTRAINT CH_CLIENTS CHECK (eMail LIKE '%@%.%')
-);
+)
+CLUSTER cliente (clientId);
 
 
 CREATE TABLE products(
@@ -131,7 +134,8 @@ CONSTRAINT PK_contracts PRIMARY KEY (contractId),
 CONSTRAINT FK_contracts1 FOREIGN KEY (clientId) REFERENCES clientS ON DELETE SET NULL,
 CONSTRAINT FK_contracts2 FOREIGN KEY (contract_type) REFERENCES products,
 CONSTRAINT CK_contracts CHECK (startdate<=enddate)
-);
+)
+CLUSTER cliente (clientId);
 
 
 CREATE TABLE taps_movies(
@@ -142,7 +146,8 @@ title VARCHAR2(100) NOT NULL,
 CONSTRAINT PK_tapsM PRIMARY KEY (contractId,title,view_datetime),
 CONSTRAINT FK_tapsM1 FOREIGN KEY (contractId) REFERENCES contracts,
 CONSTRAINT FK_tapsM2 FOREIGN KEY (title) REFERENCES movies
-);
+)
+CLUSTER titulo_peli (title);
 
 
 CREATE TABLE taps_series(
@@ -165,7 +170,8 @@ title VARCHAR2(100) NOT NULL,
 CONSTRAINT PK_licsM PRIMARY KEY (client,title),
 CONSTRAINT FK_licsM1 FOREIGN KEY (title) REFERENCES movies,
 CONSTRAINT FK_licsM2 FOREIGN KEY (client) REFERENCES clients ON DELETE CASCADE
-);
+)
+CLUSTER titulo_peli (title);
 
 
 CREATE TABLE lic_series(
@@ -189,3 +195,7 @@ amount NUMBER(8,2) NOT NULL,
 CONSTRAINT PK_invcs PRIMARY KEY (contractId,month,year),
 CONSTRAINT FK_invcs FOREIGN KEY (contractId) REFERENCES contracts
 );
+
+-- creation of indexes
+CREATE INDEX ind_movie_title ON CLUSTER titulo_peli;
+CREATE INDEX ind_cliente ON CLUSTER cliente;
