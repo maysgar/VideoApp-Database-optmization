@@ -22,10 +22,8 @@
 	 
 
 
-
-
 	 
-
+	 
 
    PROCEDURE PR_WORKLOAD(N NUMBER) IS
 
@@ -179,6 +177,3 @@ SELECT C.eachmonth month, B.ACTOR, B.totaltaps
 	   DBMS_OUTPUT.ENABLE (buffer_size => NULL);
 	END PKG_COSTES;
 	/
-
-	
-
