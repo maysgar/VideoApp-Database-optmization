@@ -33,7 +33,7 @@
 
 	BEGIN
 	
-	 threeHoursLess := sysdate - interval '3' hour; --sysdate - (3/24)
+	 threeHoursLess := sysdate - 3/24; 
 
 	-- INSERTS
 
@@ -44,13 +44,13 @@
 	 ) LOOP
 	 
 	 
-	 INSERT INTO taps_movies VALUES(a.CONTRACTID, threeHoursLess, 27, 'Titanic');
+	 INSERT INTO taps_movies VALUES(a.CONTRACTID, threeHoursLess, 98, 'Titanic');
 	 
-	 INSERT INTO taps_series VALUES(a.CONTRACTID, threeHoursLess, 27, 'House', 1, 1); --'Game of Thrones', 3, 1
+	 INSERT INTO taps_series VALUES(a.CONTRACTID, threeHoursLess, 98, 'House', 1, 1); --'Game of Thrones', 3, 1
 	 
-	 INSERT INTO taps_series VALUES(a.CONTRACTID, threeHoursLess, 27, 'Sherlock', 1, 1); --'Game of Thrones', 4, 1
+	 INSERT INTO taps_series VALUES(a.CONTRACTID, threeHoursLess, 98, 'Sherlock', 1, 1); --'Game of Thrones', 4, 1
 	 
-	 INSERT INTO taps_series VALUES(a.CONTRACTID, threeHoursLess, 27, 'Columbus', 1, 1); --'Game of Thrones', 1, 1
+	 INSERT INTO taps_series VALUES(a.CONTRACTID, threeHoursLess, 98, 'Columbo', 1, 1); --'Game of Thrones', 1, 1
 
 	 END LOOP;
 
@@ -122,7 +122,7 @@ SELECT C.eachmonth month, B.ACTOR, B.totaltaps
 	FROM TAPS_MOVIES
 	 ) LOOP
 
-	  DELETE FROM TAPS_MOVIES WHERE b.CONTRACTID = CONTRACTID AND  b.PCT= 27 AND b.TITLE= 'Titanic';
+	  DELETE FROM TAPS_MOVIES WHERE b.CONTRACTID = CONTRACTID AND  b.PCT= 98 AND b.TITLE= 'Titanic';
 	  
 	  END LOOP;
 	  
@@ -131,11 +131,11 @@ SELECT C.eachmonth month, B.ACTOR, B.totaltaps
 	FROM TAPS_SERIES
 	 ) LOOP
 	  
-	  DELETE FROM TAPS_SERIES WHERE (c.CONTRACTID= CONTRACTID AND c.PCT= 27 AND c.TITLE= 'House' AND c.SEASON= 1 AND c.EPISODE= 1);
+	  DELETE FROM TAPS_SERIES WHERE (c.CONTRACTID= CONTRACTID AND c.PCT= 98 AND c.TITLE= 'House' AND c.SEASON= 1 AND c.EPISODE= 1);
 		
-	  DELETE FROM TAPS_SERIES WHERE (c.CONTRACTID= CONTRACTID AND c.PCT= 27 AND c.TITLE= 'Sherlock' AND c.SEASON= 1 AND c.EPISODE= 1);
+	  DELETE FROM TAPS_SERIES WHERE (c.CONTRACTID= CONTRACTID AND c.PCT= 98 AND c.TITLE= 'Sherlock' AND c.SEASON= 1 AND c.EPISODE= 1);
 
-	  DELETE FROM TAPS_SERIES WHERE (c.CONTRACTID= CONTRACTID AND c.PCT= 27 AND c.TITLE= 'Columbus' AND c.SEASON= 1 AND c.EPISODE= 1);
+	  DELETE FROM TAPS_SERIES WHERE (c.CONTRACTID= CONTRACTID AND c.PCT= 98 AND c.TITLE= 'Columbo' AND c.SEASON= 1 AND c.EPISODE= 1);
 		
 	 END LOOP;
 
