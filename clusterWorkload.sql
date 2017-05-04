@@ -103,7 +103,7 @@ CONSTRAINT UK3_CLIENTS UNIQUE (phoneN),
 CONSTRAINT CH_CLIENTS CHECK (eMail LIKE '%@%.%')
 )
 CLUSTER cliente (clientId);
-
+        
 
 CREATE TABLE products(
 product_name 	VARCHAR2(25),  
