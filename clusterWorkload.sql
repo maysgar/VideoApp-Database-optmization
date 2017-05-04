@@ -1,201 +1,198 @@
--- creation of clusters
-CREATE CLUSTER cliente (clientId VARCHAR2(15) );
-CREATE CLUSTER titulo_peli (movie_title VARCHAR2(100));
-CREATE CLUSTER producto (Product_name VARCHAR2(25));
-CREATE CLUSTER id_contrato (clientId VARCHAR2(15));
-CREATE CLUSTER actor_cluster ((actor_name, VARCHAR2(50));
+-- WORKLOAD
+
+-- QUERY 1 (4284 VS. 4280)
+SELECT SURNAME, SEC_SURNAME, NAME, CONTRACT_TYPE, STARTDATE,ENDDATE,TYPE  
+FROM 
+ (SELECT CLIENTID, CONTRACT_TYPE, STARTDATE,ENDDATE FROM CONTRACTS WHERE  ENDDATE>SYSDATE OR ENDDATE IS NULL) A 
+  JOIN 
+ (SELECT TYPE, PRODUCT_NAME FROM PRODUCTS) B ON (A.CONTRACT_TYPE=B.PRODUCT_NAME)
+  JOIN 
+ CLIENTS C ON (A.CLIENTID=C.CLIENTID)
+ORDER BY SURNAME, SEC_SURNAME, NAME; 
+
+
+--QUERY 2
+
+SELECT * 
+FROM (SELECT B.ACTOR, COUNT('X') USA_MOVIES 
+         FROM (SELECT MOVIE_TITLE FROM MOVIES WHERE COUNTRY='USA') A 
+              JOIN CASTS B ON (A.MOVIE_TITLE=B.TITLE) 
+         GROUP BY B.ACTOR 
+         ORDER BY USA_MOVIES DESC)
+WHERE ROWNUM<6;
+
+
+-- QUERY 3
+
+-- First interpretation: a whole tv series (all seasons, all episodes): NONE
+SELECT A.CLIENT, A.TITLE                     
+   FROM (SELECT CLIENT,TITLE,COUNT('X') N_EPISODIOS FROM LIC_SERIES GROUP BY CLIENT,TITLE) A
+        JOIN (SELECT TITLE, SUM(EPISODES) TOTAL_EP FROM SEASONS GROUP BY TITLE) B 
+        ON (A.TITLE=B.TITLE AND A.N_EPISODIOS=B.TOTAL_EP); 
+
+-- Second interpretation: a whole season of any series (2139)
+SELECT A.CLIENT, A.TITLE, A.SEASON
+   FROM (SELECT CLIENT,TITLE,SEASON, COUNT('X') N_EPISODIOS FROM LIC_SERIES GROUP BY CLIENT,TITLE,SEASON) A
+   JOIN SEASONS B 
+   ON (A.TITLE=B.TITLE AND A.SEASON=B.SEASON AND A.N_EPISODIOS=B.EPISODES); 
 
 
 
+-- QUERY 4
 
-
-CREATE TABLE MOVIES(
-movie_title       VARCHAR2(100),
-title_year        NUMBER(4),
-country           VARCHAR2(25), 
-color             VARCHAR2(1),
-duration          NUMBER(3) NOT NULL,
-gross             NUMBER(10), 
-budget            NUMBER(12),
-director_name     VARCHAR2(50) DEFAULT 'Anonymous',
-filming_language  VARCHAR2(20),
-num_critic_for_reviews    NUMBER(6), 
-director_facebook_likes   NUMBER(6), 
-num_voted_users           NUMBER(7), 
-num_user_for_reviews      NUMBER(6), 
-cast_total_facebook_likes NUMBER(6), 
-facenumber_in_poster      NUMBER(6), 
-movie_imdb_link           VARCHAR2(60), 
-imdb_score                NUMBER(2,1), 
-content_rating            VARCHAR2(9),
-aspect_ratio              NUMBER(4,2) , 
-movie_facebook_likes      NUMBER(6),
-CONSTRAINT MOVIES_PK PRIMARY KEY (movie_title),
-CONSTRAINT MOVIES_CH CHECK (COLOR IN ('B','C', null))
-)
-CLUSTER titulo_peli (movie_title);
+WITH A AS (SELECT TITLE, TO_CHAR(VIEW_DATETIME,'YYYY-MM') eachmonth FROM TAPS_MOVIES),
+     B AS (SELECT CASTS.ACTOR, A.eachmonth, COUNT('X') totaltaps          
+              FROM A JOIN CASTS ON (A.TITLE=CASTS.TITLE)
+              GROUP BY CASTS.ACTOR, A.eachmonth),
+     C AS (SELECT eachmonth,MAX(totaltaps) maxtaps FROM B GROUP BY eachmonth)
+SELECT C.eachmonth month, B.ACTOR, B.totaltaps
+   FROM C JOIN B ON (B.eachmonth=C.eachmonth AND B.totaltaps=C.maxtaps)
+   ORDER BY C.eachmonth);
 
 
 
-CREATE TABLE GENRES_MOVIES (
-title	VARCHAR2(100),
-genre	VARCHAR2(70),
-CONSTRAINT PK_GENRES_MOVIES PRIMARY KEY (title,genre),
-CONSTRAINT FK_GENRES_MOVIES FOREIGN KEY (title) REFERENCES MOVIES ON DELETE CASCADE
-)
-CLUSTER titulo_peli (title);
+-- BILLING FUNCTION AND PROCEDURE
+
+CREATE OR REPLACE FUNCTION bill (month IN NUMBER, year IN NUMBER, 
+          cust IN CLIENTS.clientId%TYPE, product IN products.product_name%TYPE)  
+          RETURN NUMBER IS
+
+tariff products%ROWTYPE;
+low_date DATE; top_date DATE;
+ppcs NUMBER; ppvs NUMBER;
+mins NUMBER; days NUMBER; 
+promoends DATE;
+total NUMBER;
+aux NUMBER;
+
+BEGIN
+   SELECT * INTO tariff FROM products WHERE product_name=product;
+   low_date := TO_DATE(month||'/'||year,'MM/YYYY'); 
+	top_date  := ADD_MONTHS(low_date,1) -1;
+    
+   If tariff.type='V' THEN ppcs:=0;
+      ELSE
+           SELECT count('x')*2 INTO ppcs FROM lic_movies 
+              WHERE client=cust AND datetime>=low_date AND datetime<top_date;
+           SELECT ppcs+count('x') INTO ppcs FROM lic_series 
+              WHERE client=cust AND datetime>=low_date AND datetime<top_date;
+   END IF;
 
 
-CREATE TABLE keywords_movies (
-title		VARCHAR2(100),
-keyword		VARCHAR2(150),
-CONSTRAINT PK_KEYWORDS_MOVIES PRIMARY KEY (title,keyword),
-CONSTRAINT FK_KEYWORDS_MOVIES FOREIGN KEY (title) REFERENCES MOVIES ON DELETE CASCADE
-)
-CLUSTER titulo_peli (title);
+   If tariff.type='C' THEN ppvs:=0;
+      ELSE
+ -- We will count all views and then substract views with a licence
+ -- Count movie_views with licence
+         SELECT count('x') INTO aux 
+            FROM (SELECT * FROM taps_movies
+                    WHERE view_datetime>=low_date AND view_datetime<top_date 
+                          AND pct>tariff.zapp) A 
+                 NATURAL JOIN 
+                 (SELECT contractId FROM contracts WHERE clientId=cust) B
+               JOIN 
+                 (SELECT title,datetime FROM lic_movies WHERE client=cust) C
+                 ON (A.title=C.title AND A.view_datetime>=C.datetime);
+      
+ -- Count movie_views without licence
+         SELECT (count('x')-aux)*2 INTO ppvs
+            FROM (SELECT contractId FROM contracts WHERE clientId=cust) 
+                 NATURAL JOIN taps_movies
+            WHERE view_datetime>=low_date AND view_datetime<top_date 
+                  AND pct>tariff.zapp;
+
+ -- Count series_views with licence
+         SELECT count('x') INTO aux 
+            FROM (SELECT * FROM taps_series
+                    WHERE view_datetime>=low_date AND view_datetime<top_date 
+                          AND pct>tariff.zapp) A 
+                 NATURAL JOIN 
+                 (SELECT contractId FROM contracts WHERE clientId=cust) B
+                 JOIN 
+                 (SELECT title,datetime,season,episode FROM lic_series 
+                     WHERE client=cust) C
+                 ON (A.title=C.title AND A.season=C.season AND A.episode=C.episode 
+                     AND A.view_datetime>=C.datetime);
+ -- count series_views without licence minus the latter
+      SELECT ppvs+(count('x')-aux) INTO ppvs
+           FROM (SELECT contractId FROM contracts WHERE clientId=cust) 
+                NATURAL JOIN taps_series
+           WHERE view_datetime>=low_date AND view_datetime<top_date 
+                   AND pct>tariff.zapp;
+             
+   END IF;
+  
+
+-- Count days
+   SELECT count('x') INTO days
+      FROM ((SELECT DISTINCT TO_CHAR(view_datetime,'DD')
+               FROM (SELECT contractId FROM contracts WHERE clientId=cust) 
+                    NATURAL JOIN taps_movies
+               WHERE view_datetime>=low_date AND view_datetime<top_date 
+                     AND pct>tariff.zapp)
+            UNION
+            (SELECT DISTINCT TO_CHAR(view_datetime,'DD')
+               FROM (SELECT contractId FROM contracts WHERE clientId=cust) 
+                    NATURAL JOIN taps_series
+               WHERE view_datetime>=low_date AND view_datetime<top_date 
+                     AND pct>tariff.zapp));
+
+-- Count minutes regarding movies
+   SELECT sum(B.duration*A.pct/100) INTO mins
+      FROM ((SELECT title,pct
+            FROM (SELECT contractId FROM contracts WHERE clientId=cust) 
+                 NATURAL JOIN taps_movies
+                 WHERE view_datetime>=low_date AND view_datetime<top_date) A
+            NATURAL JOIN (SELECT movie_title title, duration FROM movies) B);
+
+   SELECT NVL(mins,0)+sum(B.avgduration*A.pct/100) INTO mins
+      FROM (SELECT title,season,pct
+            FROM (SELECT contractId FROM contracts WHERE clientId=cust) 
+                 NATURAL JOIN taps_series
+                 WHERE view_datetime>=low_date AND view_datetime<top_date) A
+            NATURAL JOIN (SELECT title,season,avgduration FROM seasons) B;
 
 
-CREATE TABLE PLAYERS (
-actor_name      VARCHAR2(50), 
-facebook_likes  NUMBER(6,0), 
-CONSTRAINT ACTORS_PK PRIMARY KEY (actor_name));
+-- Calculates total
+total := tariff.fee + tariff.tap_cost*(ppcs+ppvs)+ tariff.ppm*nvl(mins,0) + tariff.ppd*days;  
+
+-- We calculate when the promotion ends
+SELECT MAX((nvl(enddate,sysdate)-startdate)/8+startdate) INTO promoends 
+   FROM contracts 
+   WHERE (clientId=cust) AND 
+         ( (low_date BETWEEN startdate AND nvl(enddate,sysdate))
+           OR ((top_date-1) BETWEEN startdate AND nvl(enddate,sysdate))
+         );
+
+-- And we substract the discount in case
+ IF top_date<promoends THEN total:=total*((100-tariff.promo)/100); END IF;
 
 
-CREATE TABLE CASTS (
-actor   VARCHAR2(50), 
-title   VARCHAR2(100),
-CONSTRAINT PK_CASTS PRIMARY KEY (actor, title),
-CONSTRAINT FK1_CASTS FOREIGN KEY (actor) REFERENCES PLAYERS ON DELETE CASCADE,
-CONSTRAINT FK2_CASTS FOREIGN KEY (title) REFERENCES MOVIES ON DELETE CASCADE)
-CLUSTER titulo_peli (title);
+RETURN trunc(nvl(total,0),2);
+
+END;
 
 
-CREATE TABLE SERIES(
-title        	VARCHAR2(100),
-total_seasons 	NUMBER(3) NOT NULL,
-CONSTRAINT PK_SERIES PRIMARY KEY (title)
-);
 
+CREATE OR REPLACE PROCEDURE billing (month IN NUMBER, year IN NUMBER) IS
+  low_date DATE; 
+  top_date DATE;
+BEGIN
+   low_date := TO_DATE(TO_CHAR(month)||'/'||TO_CHAR(year),'MM/YYYY'); 
+   top_date := ADD_MONTHS(low_date,1) -1;
+   
+     INSERT INTO Invoices
+       SELECT B.contractID, month, year, sysdate,bill(month,year,B.clientID,B.contract_type)
+          FROM (SELECT clientID,MAX(startdate) startdate FROM Contracts 
+                   WHERE ((low_date BETWEEN startdate AND NVL(enddate,sysdate)) 
+                           OR (startdate BETWEEN low_date AND top_date))
+                   GROUP BY clientID) A JOIN contracts B on A.clientID=B.clientID and A.startdate=B.startdate;
+				   
+	
+	/* Note: you can't run this twice for the same month without deleting;
+                 Thus, run each iteration with a different month: billing(N); */
 
-CREATE TABLE SEASONS(
-title        	VARCHAR2(100),
-season 		NUMBER(3),	
-avgduration	NUMBER(3) NOT NULL,
-episodes 	NUMBER(3) NOT NULL,
-CONSTRAINT PK_SEASONS PRIMARY KEY (title, season),
-CONSTRAINT FK_SEASONS FOREIGN KEY (title) REFERENCES SERIES ON DELETE CASCADE
-);
+EXCEPTION
+   WHEN NO_DATA_FOUND THEN DBMS_OUTPUT.PUT_LINE('There are no billing data.');
+   WHEN OTHERS THEN DBMS_OUTPUT.PUT_LINE('Billing is not possible');
 
-
-CREATE TABLE CLIENTS (
-clientId	VARCHAR2(15),
-DNI		VARCHAR2(9),
-name		VARCHAR2(100) NOT NULL,
-surname		VARCHAR2(100) NOT NULL,
-sec_surname	VARCHAR2(100),
-eMail		VARCHAR2(100) NOT NULL,
-phoneN		NUMBER(12),
-birthdate	DATE,
-CONSTRAINT PK_CLIENTS PRIMARY KEY (clientId),
-CONSTRAINT UK1_CLIENTS UNIQUE (DNI),
-CONSTRAINT UK2_CLIENTS UNIQUE (eMail),
-CONSTRAINT UK3_CLIENTS UNIQUE (phoneN),
-CONSTRAINT CH_CLIENTS CHECK (eMail LIKE '%@%.%')
-)
-CLUSTER cliente (clientId);
-        
-
-CREATE TABLE products(
-product_name 	VARCHAR2(25),  
-fee		NUMBER(3) NOT NULL,
-type		VARCHAR2(1) NOT NULL,
-tap_cost	NUMBER(4,2) NOT NULL,
-zapp		NUMBER(2) DEFAULT 0 NOT NULL,
-ppm		NUMBER(4,2) DEFAULT 0 NOT NULL,
-ppd		NUMBER(4,2) DEFAULT 0 NOT NULL,
-promo		NUMBER(3) DEFAULT 0 NOT NULL,
-CONSTRAINT PK_products PRIMARY KEY (product_name),
-CONSTRAINT CK_products1 CHECK (type IN ('C','V')),
-CONSTRAINT CK_products2 CHECK (PROMO <= 100)
-);
-
-
-CREATE TABLE contracts(
-contractId VARCHAR2(10),  
-clientId  VARCHAR2(15),  
-startdate DATE NOT NULL,
-enddate DATE, 
-contract_type VARCHAR2(50),
-address		VARCHAR2(100) NOT NULL,
-town		VARCHAR2(100) NOT NULL,
-ZIPcode		VARCHAR2(8) NOT NULL,
-country		VARCHAR2(100) NOT NULL,
-CONSTRAINT PK_contracts PRIMARY KEY (contractId),
-CONSTRAINT FK_contracts1 FOREIGN KEY (clientId) REFERENCES clientS ON DELETE SET NULL,
-CONSTRAINT FK_contracts2 FOREIGN KEY (contract_type) REFERENCES products,
-CONSTRAINT CK_contracts CHECK (startdate<=enddate)
-)
-CLUSTER cliente (clientId);
-
-
-CREATE TABLE taps_movies(
-contractId VARCHAR2(10), 
-view_datetime DATE,
-pct	NUMBER(3) DEFAULT 0 NOT NULL,
-title VARCHAR2(100) NOT NULL, 
-CONSTRAINT PK_tapsM PRIMARY KEY (contractId,title,view_datetime),
-CONSTRAINT FK_tapsM1 FOREIGN KEY (contractId) REFERENCES contracts,
-CONSTRAINT FK_tapsM2 FOREIGN KEY (title) REFERENCES movies
-)
-CLUSTER titulo_peli (title);
-
-
-CREATE TABLE taps_series(
-contractId VARCHAR2(10), 
-view_datetime DATE,
-pct	NUMBER(3) DEFAULT 0 NOT NULL,
-title VARCHAR2(100) NOT NULL, 
-season  NUMBER(3) NOT NULL,
-episode NUMBER(3) NOT NULL,
-CONSTRAINT PK_tapsS PRIMARY KEY (contractId,title,season,episode,view_datetime),
-CONSTRAINT FK_tapsS1 FOREIGN KEY (contractId) REFERENCES contracts,
-CONSTRAINT FK_tapsS2 FOREIGN KEY (title,season) REFERENCES seasons
-);
-
-
-CREATE TABLE lic_movies(
-client VARCHAR2(15), 
-datetime DATE,
-title VARCHAR2(100) NOT NULL, 
-CONSTRAINT PK_licsM PRIMARY KEY (client,title),
-CONSTRAINT FK_licsM1 FOREIGN KEY (title) REFERENCES movies,
-CONSTRAINT FK_licsM2 FOREIGN KEY (client) REFERENCES clients ON DELETE CASCADE
-)
-CLUSTER titulo_peli (title);
-
-
-CREATE TABLE lic_series(
-client VARCHAR2(15), 
-datetime DATE,
-title VARCHAR2(100) NOT NULL, 
-season  NUMBER(3) NOT NULL,
-episode NUMBER(3) NOT NULL,
-CONSTRAINT PK_licsS PRIMARY KEY (client,title,season,episode),
-CONSTRAINT FK_licsS1 FOREIGN KEY (title,season) REFERENCES seasons,
-CONSTRAINT FK_licsS2 FOREIGN KEY (client) REFERENCES clients ON DELETE CASCADE
-);
-
-
-CREATE TABLE invoices(
-contractId VARCHAR2(10),  
-month  NUMBER(2) ,
-year  NUMBER(4) ,
-inv_date DATE,
-amount NUMBER(8,2) NOT NULL,
-CONSTRAINT PK_invcs PRIMARY KEY (contractId,month,year),
-CONSTRAINT FK_invcs FOREIGN KEY (contractId) REFERENCES contracts
-);
-
--- creation of indexes
-CREATE INDEX ind_movie_title ON CLUSTER titulo_peli;
-CREATE INDEX ind_cliente ON CLUSTER cliente;
+END; 
