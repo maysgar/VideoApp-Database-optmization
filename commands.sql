@@ -98,3 +98,22 @@ Elapsed: 00:07:19.25*/
 
 --RESULTS OF THE PROCEDURE
 /**/
+
+--RESULTS OF THE PACKAGE ATTEMPT 2
+/*Contratos facturados en este mes:  4758
+Contratos facturados en este mes:  4758
+Contratos facturados en este mes:  4758
+Contratos facturados en este mes:  4758
+Contratos facturados en este mes:  4758
+Contratos facturados en este mes:  4758
+Contratos facturados en este mes:  4758
+Contratos facturados en este mes:  4758
+Contratos facturados en este mes:  4758
+Contratos facturados en este mes:  4758
+Contratos facturados en este mes:  4758
+RESULTS AT 05-MAY-17
+TIME CONSUMPTION: 269922 milliseconds.
+CONSISTENT GETS: 441440.3 blocks
+
+PL/SQL procedure successfully completed.*/
+
