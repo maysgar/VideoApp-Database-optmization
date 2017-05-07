@@ -210,13 +210,12 @@ DROP INDEX titulo_peli;
         
         
         CREATE TABLE invoices(
-        contractId VARCHAR2(10),
-        month  NUMBER(2) ,
-        year  NUMBER(4) ,
-        inv_date DATE,
+        clientId VARCHAR2(15),  
+        month  VARCHAR2(2) ,
+        year  VARCHAR2(4) ,
         amount NUMBER(8,2) NOT NULL,
-        CONSTRAINT PK_invcs PRIMARY KEY (contractId,month,year),
-        CONSTRAINT FK_invcs FOREIGN KEY (contractId) REFERENCES contracts
+        CONSTRAINT PK_invcs PRIMARY KEY (clientId,month,year),
+        CONSTRAINT FK_invcs FOREIGN KEY (clientId) REFERENCES clients
         );
         
         -- creation of indexes
