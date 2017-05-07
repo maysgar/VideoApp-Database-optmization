@@ -13,6 +13,11 @@ DROP TABLE TAPS_SERIES CASCADE CONSTRAINTS;
 DROP TABLE LIC_MOVIES CASCADE CONSTRAINTS; 
 DROP TABLE LIC_SERIES CASCADE CONSTRAINTS; 
 DROP TABLE INVOICES CASCADE CONSTRAINTS;
+DROP CLUSTER cliente;
+DROP CLUSTER titulo_peli;
+DROP INDEX ind_cliente;
+DROP INDEX titulo_peli;
+--DROP INDEX ind_enddate;
 
 
 
@@ -217,4 +222,5 @@ DROP TABLE INVOICES CASCADE CONSTRAINTS;
         -- creation of indexes
         CREATE INDEX ind_movie_title ON CLUSTER titulo_peli;
         CREATE INDEX ind_cliente ON CLUSTER cliente;--- creation of cluster
+        --CREATE INDEX ind_enddate ON contracts (enddate);
         
